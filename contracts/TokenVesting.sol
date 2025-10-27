@@ -5,24 +5,22 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-/**
- * @title TokenVesting
- * @dev A contract for vesting ERC20 tokens with linear or step-based release schedules
- */
+// token vesting contract - lock tokens, release over time
+// two modes: linear (smooth release) or steps (chunks at intervals)
 contract TokenVesting is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     enum ReleaseType {
-        LINEAR,
-        STEP_BASED
+        LINEAR,        // smooth release over time
+        STEP_BASED     // chunks at set intervals
     }
 
     enum ReleaseFrequency {
-        MINUTELY,
-        HOURLY,
-        DAILY,
-        WEEKLY,
-        MONTHLY
+        MINUTELY,      // for testing
+        HOURLY,        // for testing
+        DAILY,         // normal use
+        WEEKLY,        // normal use
+        MONTHLY        // normal use
     }
 
     enum VestingStatus {
@@ -32,23 +30,23 @@ contract TokenVesting is ReentrancyGuard {
 
     struct Vesting {
         uint256 id;
-        address creator;
-        address token;
-        address beneficiary;
-        uint256 totalAmount;
-        uint256 startTime;
-        uint256 endTime;
-        ReleaseType releaseType;
-        ReleaseFrequency releaseFrequency;
-        uint256 amountReleased;
-        VestingStatus status;
+        address creator;          // who made it
+        address token;            // what token
+        address beneficiary;      // who gets it
+        uint256 totalAmount;      // how much total
+        uint256 startTime;        // when it starts
+        uint256 endTime;          // when it ends
+        ReleaseType releaseType;  // how it releases
+        ReleaseFrequency releaseFrequency;  // step frequency if step-based
+        uint256 amountReleased;   // already claimed
+        VestingStatus status;     // active or done
     }
 
-    // State variables
+    // track everything
     uint256 private _nextVestingId;
     mapping(uint256 => Vesting) public vestings;
-    mapping(address => uint256[]) private _creatorVestings;
-    mapping(address => uint256[]) private _beneficiaryVestings;
+    mapping(address => uint256[]) private _creatorVestings;     // vestings by creator
+    mapping(address => uint256[]) private _beneficiaryVestings; // vestings by receiver
 
     // Events
     event VestingCreated(
@@ -69,16 +67,8 @@ contract TokenVesting is ReentrancyGuard {
 
     event VestingCompleted(uint256 indexed vestingId);
 
-    /**
-     * @dev Creates a new vesting schedule
-     * @param token The ERC20 token to vest
-     * @param beneficiary The address that will receive tokens (use address(0) for creator)
-     * @param totalAmount Total amount of tokens to vest
-     * @param startTime Unix timestamp when vesting starts
-     * @param endTime Unix timestamp when vesting ends
-     * @param releaseType LINEAR or STEP_BASED
-     * @param releaseFrequency MINUTELY, HOURLY, DAILY, WEEKLY, or MONTHLY (for step-based)
-     */
+    // create new vesting - locks tokens from creator, releases to beneficiary over time
+    // pass address(0) as beneficiary to vest to yourself
     function createVesting(
         address token,
         address beneficiary,
@@ -93,10 +83,10 @@ contract TokenVesting is ReentrancyGuard {
         require(startTime >= block.timestamp, "Start time must be in the future");
         require(endTime > startTime, "End time must be after start time");
 
-        // If no beneficiary provided, use creator
+        // default to self if no beneficiary
         address actualBeneficiary = beneficiary == address(0) ? msg.sender : beneficiary;
 
-        // Transfer tokens from creator to this contract
+        // pull tokens from creator
         IERC20(token).safeTransferFrom(msg.sender, address(this), totalAmount);
 
         uint256 vestingId = _nextVestingId++;
@@ -131,10 +121,7 @@ contract TokenVesting is ReentrancyGuard {
         return vestingId;
     }
 
-    /**
-     * @dev Claims vested tokens for a specific vesting schedule
-     * @param vestingId The ID of the vesting schedule
-     */
+    // claim unlocked tokens - only beneficiary can call this
     function claim(uint256 vestingId) external nonReentrant {
         Vesting storage vesting = vestings[vestingId];
         require(vesting.id == vestingId, "Vesting does not exist");
@@ -146,7 +133,7 @@ contract TokenVesting is ReentrancyGuard {
 
         vesting.amountReleased += claimable;
 
-        // Check if vesting is completed
+        // mark complete if all tokens claimed
         if (vesting.amountReleased >= vesting.totalAmount) {
             vesting.status = VestingStatus.COMPLETED;
             emit VestingCompleted(vestingId);
@@ -157,11 +144,7 @@ contract TokenVesting is ReentrancyGuard {
         emit TokensClaimed(vestingId, vesting.beneficiary, claimable);
     }
 
-    /**
-     * @dev Calculates the amount of tokens that can be claimed
-     * @param vestingId The ID of the vesting schedule
-     * @return The amount of tokens available to claim
-     */
+    // check how many tokens are claimable right now
     function getClaimableAmount(uint256 vestingId) public view returns (uint256) {
         Vesting memory vesting = vestings[vestingId];
 
@@ -170,22 +153,22 @@ contract TokenVesting is ReentrancyGuard {
         }
 
         if (block.timestamp < vesting.startTime) {
-            return 0;
+            return 0;  // hasn't started yet
         }
 
         uint256 vestedAmount;
 
         if (block.timestamp >= vesting.endTime) {
-            // All tokens are vested
+            // past end time - everything is vested
             vestedAmount = vesting.totalAmount;
         } else {
             if (vesting.releaseType == ReleaseType.LINEAR) {
-                // Linear vesting: proportional to time elapsed
+                // linear - smooth proportional release
                 uint256 timeElapsed = block.timestamp - vesting.startTime;
                 uint256 totalTime = vesting.endTime - vesting.startTime;
                 vestedAmount = (vesting.totalAmount * timeElapsed) / totalTime;
             } else {
-                // Step-based vesting: tokens unlock at intervals
+                // step-based - chunks at intervals
                 vestedAmount = _calculateStepBasedVesting(vesting);
             }
         }
@@ -193,11 +176,7 @@ contract TokenVesting is ReentrancyGuard {
         return vestedAmount - vesting.amountReleased;
     }
 
-    /**
-     * @dev Calculates vested amount for step-based vesting
-     * @param vesting The vesting schedule
-     * @return The total vested amount
-     */
+    // calculate step-based vesting - tokens unlock at set intervals
     function _calculateStepBasedVesting(Vesting memory vesting) private view returns (uint256) {
         uint256 intervalDuration;
 
@@ -231,38 +210,23 @@ contract TokenVesting is ReentrancyGuard {
         return intervalsCompleted * amountPerInterval;
     }
 
-    /**
-     * @dev Returns all vesting IDs created by a specific address
-     * @param creator The creator address
-     * @return Array of vesting IDs
-     */
+    // get all vestings created by an address
     function getVestingsByCreator(address creator) external view returns (uint256[] memory) {
         return _creatorVestings[creator];
     }
 
-    /**
-     * @dev Returns all vesting IDs where an address is the beneficiary
-     * @param beneficiary The beneficiary address
-     * @return Array of vesting IDs
-     */
+    // get all vestings where address is beneficiary
     function getVestingsByBeneficiary(address beneficiary) external view returns (uint256[] memory) {
         return _beneficiaryVestings[beneficiary];
     }
 
-    /**
-     * @dev Returns detailed information about a vesting schedule
-     * @param vestingId The ID of the vesting schedule
-     * @return The vesting details
-     */
+    // get full vesting details
     function getVesting(uint256 vestingId) external view returns (Vesting memory) {
         require(vestings[vestingId].id == vestingId, "Vesting does not exist");
         return vestings[vestingId];
     }
 
-    /**
-     * @dev Returns all vesting schedules (for admin view)
-     * @return Array of all vestings
-     */
+    // get all vestings - for admin view
     function getAllVestings() external view returns (Vesting[] memory) {
         Vesting[] memory allVestings = new Vesting[](_nextVestingId);
 
@@ -273,10 +237,7 @@ contract TokenVesting is ReentrancyGuard {
         return allVestings;
     }
 
-    /**
-     * @dev Returns the total number of vesting schedules
-     * @return The total count
-     */
+    // get total vesting count
     function getTotalVestings() external view returns (uint256) {
         return _nextVestingId;
     }
