@@ -10,16 +10,16 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @author ~hiro
  * @notice Production-ready token vesting contract with linear and step-based release mechanisms
  * @dev Implements all security best practices and gas optimizations:
- *      ✅ ReentrancyGuard for claim protection against malicious tokens
- *      ✅ SafeERC20 for secure token transfers (handles non-standard ERC20s)
- *      ✅ Custom errors for gas-efficient reverts (2-4% gas savings)
- *      ✅ Comprehensive input validation with zero address checks
- *      ✅ Minimum vesting period enforcement (60 seconds)
- *      ✅ Rounding residue protection (full amount at end time)
- *      ✅ Full event logging for transparency and off-chain analytics
- *      ✅ Gas optimized with external view functions
- *      ✅ Multiple vesting support (unlimited vestings per user)
- *      ✅ Locked Solidity version for production stability
+ * ReentrancyGuard for claim protection against malicious tokens
+ * SafeERC20 for secure token transfers (handles non-standard ERC20s)
+ * Custom errors for gas-efficient reverts (2-4% gas savings)
+ * Comprehensive input validation with zero address checks
+ * Minimum vesting period enforcement (60 seconds)
+ * Rounding residue protection (full amount at end time)
+ * Full event logging for transparency and off-chain analytics
+ * Gas optimized with external view functions
+ * Multiple vesting support (unlimited vestings per user)
+ * Locked Solidity version for production stability
  *
  * Features:
  * - LINEAR vesting: Continuous proportional token release over time
@@ -28,13 +28,13 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * - Efficient queries: Get vestings by creator or beneficiary
  * - Admin dashboard: View all vestings with getTotalVestings()
  *
- * Security Audit Status: ✅ All recommendations implemented
- * - Reentrancy protection: ✅
- * - SafeERC20 usage: ✅
- * - Input validation: ✅
- * - Timestamp manipulation resistant: ✅ (60 second minimum)
- * - Rounding protection: ✅ (full amount at end)
- * - Event logging: ✅
+ * Security Audit Status: y All recommendations implemented
+ * - Reentrancy protection: y
+ * - SafeERC20 usage: y
+ * - Input validation: y
+ * - Timestamp manipulation resistant: y (60 second minimum)
+ * - Rounding protection: y (full amount at end)
+ * - Event logging: y
  *
  * Gas Optimizations:
  * - Custom errors instead of revert strings: 2-4% savings
@@ -47,10 +47,6 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  */
 contract TokenVesting is ReentrancyGuard {
     using SafeERC20 for IERC20;
-
-    /*//////////////////////////////////////////////////////////////
-                            CUSTOM ERRORS
-    //////////////////////////////////////////////////////////////*/
 
     /// @dev Thrown when token address is zero
     error InvalidTokenAddress();
