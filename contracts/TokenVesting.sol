@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title TokenVesting
- * @author aVest Platform
+ * @author ~hiro
  * @notice Production-ready token vesting contract with linear and step-based release mechanisms
  * @dev Implements all security best practices and gas optimizations:
  *      ✅ ReentrancyGuard for claim protection against malicious tokens
